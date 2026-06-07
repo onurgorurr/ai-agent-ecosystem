@@ -116,6 +116,34 @@ class AgentOrchestrator:
             'technology_assessment': results[3] if not isinstance(results[3], Exception) else {"error": str(results[3]), "status": "failed"}
         }
     
+    async def _run_industry_research(self, industry: str) -> Dict:
+        """Execute industry-specific research and generate business ideas"""
+        
+        logger.info(f"Running industry research for: {industry}")
+        
+        # Run industry analysis agents in parallel
+        tasks = [
+            self._get_agent('trend_analyzer').analyze_industry(industry),
+            self._get_agent('competitor_analyzer').analyze_competitors(industry),
+            self._get_agent('consumer_insight').analyze_consumers(industry),
+            self._get_agent('technology_scout').scout_technology(industry)
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        market_data = {
+            'industry_analysis': results[0] if not isinstance(results[0], Exception) else {"error": str(results[0]), "status": "failed"},
+            'competitive_landscape': results[1] if not isinstance(results[1], Exception) else {"error": str(results[1]), "status": "failed"},
+            'consumer_insights': results[2] if not isinstance(results[2], Exception) else {"error": str(results[2]), "status": "failed"},
+            'technology_assessment': results[3] if not isinstance(results[3], Exception) else {"error": str(results[3]), "status": "failed"}
+        }
+        
+        # Generate business ideas based on industry research
+        ideas = await self._get_agent('opportunity_scanner').generate_business_ideas(industry, market_data)
+        market_data['business_ideas'] = ideas
+        
+        return market_data
+    
     async def _identify_opportunities(self, market_data: Dict) -> Dict:
         """Identify business opportunities"""
         

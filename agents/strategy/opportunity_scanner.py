@@ -167,3 +167,81 @@ class OpportunityScannerAgent(BaseAgent):
         
         result = await self.analyze_with_structure(prompt, schema)
         return result.get("hypotheses", [])
+    
+    async def generate_business_ideas(self, industry: str, market_data: Dict) -> List[Dict]:
+        """Generate innovative business ideas for a specific industry"""
+        
+        logger.info(f"Generating business ideas for industry: {industry}")
+        
+        prompt = f"""
+        You are an expert startup advisor and market strategist. Analyze the {industry} industry 
+        using the provided market research data and generate innovative, actionable business ideas.
+        
+        Market Research Data:
+        {json.dumps(market_data, indent=2)}
+        
+        Generate 10 concrete, implementable business ideas that:
+        1. Address real market gaps and unmet customer needs
+        2. Leverage emerging technologies and market trends
+        3. Offer clear differentiation from existing solutions
+        4. Have realistic paths to market entry
+        5. Show strong unit economics potential
+        
+        For each idea, provide specific details about:
+        - The core value proposition
+        - Target customer segments
+        - Revenue model
+        - Competitive advantages
+        - Market opportunity size
+        - Key success factors
+        - Initial go-to-market strategy
+        - Why this is the right time for this idea
+        """
+        
+        schema = {
+            "business_ideas": [
+                {
+                    "name": "string",
+                    "description": "string",
+                    "problem_statement": "string",
+                    "solution": "string",
+                    "target_segments": ["list"],
+                    "value_proposition": "string",
+                    "key_differentiators": ["list"],
+                    "revenue_model": "subscription/transaction/licensing/freemium/marketplace/other",
+                    "estimated_market_size": "string",
+                    "tam_billions": "number",
+                    "initial_investment_usd": "number",
+                    "time_to_market_months": "number",
+                    "competition_level": "low/medium/high",
+                    "required_technologies": ["list"],
+                    "team_requirements": ["list"],
+                    "key_partnerships": ["list"],
+                    "key_success_factors": ["list"],
+                    "main_risks": ["list"],
+                    "first_customer_profile": "string",
+                    "gtm_strategy": "string",
+                    "year_1_goals": ["list"],
+                    "innovation_score": "number 1-10",
+                    "feasibility_score": "number 1-10",
+                    "market_attractiveness_score": "number 1-10",
+                    "overall_opportunity_score": "number 1-10"
+                }
+            ],
+            "industry_insights": {
+                "key_trends": ["list"],
+                "market_gaps": ["list"],
+                "emerging_opportunities": ["list"],
+                "technology_enablers": ["list"],
+                "customer_pain_points": ["list"],
+                "timing_rationale": "string"
+            },
+            "top_recommendation": {
+                "idea_name": "string",
+                "why_pursue_this": "string",
+                "next_validation_steps": ["list"]
+            }
+        }
+        
+        result = await self.analyze_with_structure(prompt, schema)
+        return result.get("business_ideas", [])
