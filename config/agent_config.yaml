@@ -1,0 +1,37 @@
+agents:
+  market_research:
+    trend_analyzer:
+      model: gpt-4-turbo
+      temperature: 0.7
+      max_tokens: 2000
+      
+    competitor_analyzer:
+      model: gpt-4-turbo
+      temperature: 0.5
+      max_tokens: 2000
+      
+    consumer_insight:
+      model: gpt-4-turbo
+      temperature: 0.8
+      max_tokens: 1500
+      
+  product_dev:
+    product_manager:
+      model: gpt-4-turbo
+      temperature: 0.6
+      max_tokens: 3000
+      
+    code_generator:
+      model: gpt-4-turbo
+      temperature: 0.3
+      max_tokens: 4000
+
+pipeline:
+  max_parallel_agents: 5
+  timeout_minutes: 30
+  retry_attempts: 3
+  
+output:
+  report_format: json
+  include_raw_data: true
+  generate_summary: true
