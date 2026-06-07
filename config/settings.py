@@ -15,7 +15,11 @@ class Settings:
         # API Keys
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
         self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+        self.GOOGLE_GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
         self.SERPAPI_KEY = os.getenv("SERPAPI_KEY")
+
+        # LLM Provider
+        self.LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 
         # Database
         self.DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/agents.db")
@@ -37,6 +41,7 @@ class Settings:
 
         # Model defaults
         self.OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
         # Create directories
         self.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,11 +57,16 @@ class Settings:
 
     def _validate(self):
         """Validate required settings"""
-        if not self.OPENAI_API_KEY:
-            logger.warning("OPENAI_API_KEY not set. Some features will be limited.")
-        if not self.OPENAI_MODEL:
-            logger.warning("OPENAI_MODEL not set. Falling back to gpt-3.5-turbo.")
-
+        provider = self.LLM_PROVIDER.lower()
+        
+        if provider == "openai" and not self.OPENAI_API_KEY:
+            logger.warning("OPENAI_API_KEY not set. OpenAI will not work.")
+        elif provider == "gemini" and not self.GOOGLE_GEMINI_API_KEY:
+            logger.warning("GOOGLE_GEMINI_API_KEY not set. Gemini will not work.")
+        elif provider == "anthropic" and not self.ANTHROPIC_API_KEY:
+            logger.warning("ANTHROPIC_API_KEY not set. Anthropic will not work.")
+        
+        logger.info(f"LLM Provider: {provider}")
         logger.info(f"Settings loaded. API: {self.API_HOST}:{self.API_PORT}")
 
 

@@ -1,6 +1,7 @@
 # AI/ML Frameworks
 openai>=1.12.0
 anthropic>=0.18.0
+google-generativeai>=0.3.0
 langchain>=0.1.0
 langgraph>=0.0.20
 chromadb>=0.4.22
