@@ -45,7 +45,7 @@ class BaseAgent:
         self.agent_name = agent_name
         self.model = model or getattr(settings, "OPENAI_MODEL", "gpt-3.5-turbo")
         self.provider = settings.LLM_PROVIDER.lower()
-        
+
         if model is None and self.model != "gpt-3.5-turbo":
             logger.info(f"Using configured OPENAI_MODEL: {self.model}")
         if self.model == "gpt-4-turbo-preview":
@@ -63,10 +63,17 @@ class BaseAgent:
         elif self.provider == "gemini":
             genai.configure(api_key=settings.GOOGLE_GEMINI_API_KEY)
             self.gemini_model = genai.GenerativeModel(settings.GEMINI_MODEL)
+            self.anthropic_client = None
             self.openai_client = None
             self.async_openai = None
-            self.anthropic_client = None
-            logger.info(f"{self.agent_name} using Gemini provider")
+            if settings.OPENAI_API_KEY:
+                self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                self.async_openai = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+                logger.info(
+                    f"{self.agent_name} using Gemini provider with OpenAI fallback enabled"
+                )
+            else:
+                logger.info(f"{self.agent_name} using Gemini provider")
         elif self.provider == "anthropic":
             self.anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             self.openai_client = None
@@ -92,6 +99,14 @@ class BaseAgent:
                 return await self._think_openai(prompt, system_prompt)
         except Exception as e:
             logger.error(f"Agent {self.agent_name} error: {e}")
+
+            if self.provider == "gemini" and settings.OPENAI_API_KEY:
+                logger.warning("Gemini request failed; attempting OpenAI fallback")
+                try:
+                    return await self._think_openai(prompt, system_prompt)
+                except Exception as fallback_error:
+                    logger.error(f"OpenAI fallback also failed: {fallback_error}")
+
             return None
 
     async def _think_openai(self, prompt: str, system_prompt: str = None) -> str:
@@ -127,14 +142,12 @@ class BaseAgent:
         """Gemini implementation (async wrapper around sync API)"""
         # Gemini API is synchronous, so we run it in a thread
         loop = asyncio.get_event_loop()
-        
+
         full_prompt = prompt
         if system_prompt:
             full_prompt = f"{system_prompt}\n\n{prompt}"
 
-        result = await loop.run_in_executor(
-            None, self._gemini_call, full_prompt
-        )
+        result = await loop.run_in_executor(None, self._gemini_call, full_prompt)
 
         # Store in memory
         self.memory.append({"role": "user", "content": prompt})
@@ -196,6 +209,18 @@ class BaseAgent:
             try:
                 response = await self.think(prompt, system_prompt)
 
+                if not response:
+                    logger.warning(
+                        f"{self.agent_name} returned no response on attempt {attempt + 1}"
+                    )
+                    if attempt < 2:
+                        await asyncio.sleep(5 * (attempt + 1))
+                        continue
+                    return {
+                        "error": "No response from model",
+                        "attempts": attempt + 1,
+                    }
+
                 # Clean response
                 response = response.strip()
                 if response.startswith("```json"):
@@ -209,14 +234,23 @@ class BaseAgent:
 
             except json.JSONDecodeError as e:
                 logger.warning(f"JSON parse attempt {attempt + 1} failed: {e}")
-                if attempt == 2:
-                    logger.error("Failed to get valid JSON after 3 attempts")
-                    return {"error": "Failed to parse response", "raw": response}
+                if attempt < 2:
+                    await asyncio.sleep(2)
+                    continue
+                logger.error("Failed to get valid JSON after 3 attempts")
+                return {"error": "Failed to parse response", "raw": response}
+            except Exception as e:
+                logger.error(
+                    f"Structured analysis failed on attempt {attempt + 1}: {e}"
+                )
+                if attempt < 2:
+                    await asyncio.sleep(5 * (attempt + 1))
+                    continue
+                return {"error": "Structured analysis failed", "details": str(e)}
 
-        return {}
+        return {"error": "Structured analysis not completed"}
 
     def clear_memory(self):
         """Clear conversation memory"""
         self.memory = MemoryBuffer(self.max_memory * 2)
         logger.info(f"Memory cleared for {self.agent_name}")
-
